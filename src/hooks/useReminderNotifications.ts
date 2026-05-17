@@ -149,19 +149,18 @@ export function useReminderNotifications(userId?: string) {
             .eq('user_id', userId)
 
           if (!vErr && vData) {
-            const updates: Promise<any>[] = []
             const updatedVehicles: any[] = []
-            for (const v of vData) {
+            await Promise.all(vData.map(async (v) => {
               const dk = Number(v.daily_km || 0)
               if (dk > 0) {
                 const newCurrent = (v.current_mileage || 0) + dk
-                updates.push(supabase.from('vehicles').update({ current_mileage: newCurrent }).eq('id', v.id))
-                updatedVehicles.push({ ...v, current_mileage: newCurrent })
+                const { error } = await supabase.from('vehicles').update({ current_mileage: newCurrent }).eq('id', v.id)
+                if (!error) {
+                  updatedVehicles.push({ ...v, current_mileage: newCurrent })
+                }
               }
-            }
-            if (updates.length > 0) {
-              await Promise.all(updates)
-              // Update auto reminders based on new mileage
+            }))
+            if (updatedVehicles.length > 0) {
               try { await runAutoReminders(userId, updatedVehicles) } catch (e) { console.warn('runAutoReminders failed after daily update', e) }
             }
             localStorage.setItem(lastKey, todayStr)

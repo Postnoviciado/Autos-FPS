@@ -30,10 +30,6 @@ function formatServices(services?: string[] | string): string {
   }
 }
 
-function getVehicleLabel(vehicle: Vehicle): string {
-  return `${vehicle.plate_number} ${vehicle.brand ? `| ${vehicle.brand}` : ''} ${vehicle.model ? vehicle.model : ''}`.trim()
-}
-
 function buildReportRows(vehicles: Vehicle[], maintenances: Maintenance[], vehicleId?: string) {
   const vehicleMap = new Map(vehicles.map((v) => [v.id, v]))
   const rows = maintenances
@@ -214,8 +210,8 @@ export function exportMaintenanceReportPDF(
       styles: { fontSize: 8, cellPadding: 4 },
       theme: 'striped',
       headStyles: { fillColor: [22, 101, 210] },
-      didDrawPage: (data) => {
-        const page = doc.internal.getNumberOfPages()
+      didDrawPage: (_data) => {
+        const page = (doc.internal as any).getNumberOfPages()
         doc.setFontSize(9)
         doc.text(`Página ${page}`, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 20)
       },
@@ -284,8 +280,8 @@ export function exportMaintenanceReportPDF(
         styles: { fontSize: 8, cellPadding: 4 },
         theme: 'striped',
         headStyles: { fillColor: [22, 101, 210] },
-        didDrawPage: (data) => {
-          const page = doc.internal.getNumberOfPages()
+        didDrawPage: (_data) => {
+          const page = (doc.internal as any).getNumberOfPages()
           doc.setFontSize(9)
           doc.text(`Página ${page}`, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 20)
         },

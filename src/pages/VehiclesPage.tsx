@@ -459,7 +459,6 @@ function DatosTab({ vehicle, onSaved }: { vehicle: Vehicle; onSaved: () => void 
   }
 
   const soatStatus = getDateStatus(vehicle.soat_expiry)
-  const techStatus = getDateStatus(vehicle.tech_review_next)
   const extinStatus = getDateStatus(vehicle.extinguisher_renewal)
   const kmStatus = getMileageStatus(vehicle.current_mileage, vehicle.next_mileage)
 

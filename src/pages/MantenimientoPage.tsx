@@ -2,14 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, getFileUrl } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
-import type { Vehicle, Maintenance } from '@/types'
+import type { Vehicle } from '@/types'
 import EmptyState from '@/components/ui/EmptyState'
 import { Car, Loader2 } from 'lucide-react'
 
 export default function MantenimientoPage() {
   const user = useAuthStore((s) => s.user)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [maintenances, setMaintenances] = useState<Maintenance[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -30,15 +29,12 @@ export default function MantenimientoPage() {
 
         const vehicleIds = vehiclesData.map((v) => v.id)
         if (vehicleIds.length > 0) {
-          const { data: maintData, error: maintError } = await supabase
+          const { error: maintError } = await supabase
             .from('maintenance')
             .select('*')
             .in('vehicle_id', vehicleIds)
             .order('date', { ascending: false })
           if (maintError) throw maintError
-          setMaintenances(maintData || [])
-        } else {
-          setMaintenances([])
         }
       } catch (err: any) {
         console.warn('Failed to load vehicles for maintenance:', err)

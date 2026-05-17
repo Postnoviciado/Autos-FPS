@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Vehicle, Reminder, ReminderSettings } from '@/types'
 import { parseISO, isValid } from 'date-fns'
-import { getDateStatus, getMileageStatus } from '@/lib/dateUtils'
+import { getDateStatus } from '@/lib/dateUtils'
 
 function parseDate(dateStr?: string): Date | null {
   if (!dateStr) return null
