@@ -1,0 +1,14 @@
+Category,File,Issue / Observation,Recommendation,Severity
+Dependencies,package.json,No linting or formatting tools configured; only TypeScript and Vite are present,Add ESLint and Prettier/Stylelint to standardize code quality and keep el flujo limpio,Medium
+Security,src/lib/supabase.ts,Hardcoded fallback Supabase key in source code; exposes sensitive credentials,Remove hardcoded key and require VITE_SUPABASE_KEY from environment variables only; store secrets in .env and deploy settings,High
+Authentication,src/App.tsx & src/store/authStore.ts,init() returns unsubscribe function but App useEffect does not use cleanup; may leak listener,Refactor auth initialization to expose cleanup or configure auth subscription outside component effect,Medium
+Authentication,src/store/authStore.ts,Registration signs in immediately, but Supabase email confirmation flow may fail silently,Add explicit user feedback and handle cases where signUp requires email confirmation before sign in,Medium
+State & flow,src/hooks/useReminderNotifications.ts,Browser notifications depend on user permission but no UX flow for denied permissions,Add UI guidance to ask user to enable notifications and fallback in-app alert when denied,Low
+State & flow,src/hooks/useAutoReminders.ts,Auto-reminder generation can execute many sequential DB writes,Group updates/insertions where possible and avoid repeated Supabase calls for performance,Medium
+UX,src/pages/LoginPage.tsx,No "forgot password" option or password recovery flow,Add reset password flow to improve user experience and onboarding,Low
+UX,src/components/layout/Layout.tsx,Sidebar only collapses on mobile; desktop always fixed,Consider optional mini sidebar or quick actions for frequent tasks to acelerar navegación,Low
+Data handling,multiple files,Many functions use `throw error` inside async blocks; unhandled exceptions can degrade UX,Standardize error handling with toast messages or centralized error boundary,Medium
+Data quality,src/lib/dateUtils.ts likely,Date parsing and string handling may accept invalid values,Ensure input validation before saving and sanitize date strings in forms,Low
+Feature,project,Suggest export or import de flota y recordatorios for gestión offline,Add CSV/XLSX export for vehicles/reminders and optional import for bulk data,Low
+Performance,src/pages/DashboardPage.tsx,Dashboard requests all vehicles on each refresh without pagination,Add pagination or lazy loading for flotas grandes and reduce initial load time,Low
+
