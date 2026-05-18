@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, getFileUrl } from '@/lib/supabase'
+import { getCachedData, setCachedData } from '@/lib/localCache'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useAuthStore } from '@/store/authStore'
 import type { Vehicle } from '@/types'
 import EmptyState from '@/components/ui/EmptyState'
 import { Car, Loader2 } from 'lucide-react'
 
+const VEHICLES_CACHE_KEY = 'autosfps-cache-vehicles-v1'
+
 export default function MantenimientoPage() {
   const user = useAuthStore((s) => s.user)
+  const online = useOnlineStatus()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -18,14 +23,26 @@ export default function MantenimientoPage() {
     }
 
     const loadVehicles = async () => {
+      setLoading(true)
+      const cachedVehicles = getCachedData<Vehicle[]>(VEHICLES_CACHE_KEY)
+      if (cachedVehicles) {
+        setVehicles(cachedVehicles)
+      }
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setLoading(false)
+        return
+      }
+
       try {
         const { data, error } = await supabase.from('vehicles')
-          .select('*')
+          .select('id, user_id, plate_number, brand, model, manufacture_year, photo, created_at, updated_at')
           .eq('user_id', user.id)
           .order('plate_number', { ascending: true })
         if (error) throw error
         const vehiclesData = data || []
         setVehicles(vehiclesData)
+        setCachedData(VEHICLES_CACHE_KEY, vehiclesData)
 
         const vehicleIds = vehiclesData.map((v) => v.id)
         if (vehicleIds.length > 0) {
@@ -43,7 +60,7 @@ export default function MantenimientoPage() {
       }
     }
     loadVehicles()
-  }, [user])
+  }, [user, online])
 
   if (loading) {
     return (
@@ -88,7 +105,7 @@ export default function MantenimientoPage() {
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl overflow-hidden bg-cream-100 flex-shrink-0 flex items-center justify-center">
                   {v.photo ? (
-                    <img src={getFileUrl('vehicles', v.photo)} className="w-full h-full object-cover" alt={v.plate_number} />
+                    <img src={getFileUrl('vehicles', v.photo)} className="w-full h-full object-cover" alt={v.plate_number} loading="lazy" />
                   ) : (
                     <Car size={20} className="text-slate-300" />
                   )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
+import { askNotificationPermission } from '@/hooks/useReminderNotifications'
 import type { ReminderSettings, Vehicle } from '@/types'
 import { Settings, Loader2, Save, Bell, Info } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -23,6 +24,8 @@ export default function SettingsPage() {
     name: '',
     email: '',
   })
+  const [notificationPermission, setNotificationPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
+  const [notifLoading, setNotifLoading] = useState(false)
 
   // Días editables como strings para los inputs
   const [remForm, setRemForm] = useState({
@@ -32,6 +35,12 @@ export default function SettingsPage() {
   })
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission as 'default' | 'granted' | 'denied')
+    } else {
+      setNotificationPermission('unsupported')
+    }
+
     if (!user) return
     const loadSettings = async () => {
       try {
@@ -91,6 +100,31 @@ export default function SettingsPage() {
         ? { ...vehicle, [field]: Number.isNaN(parsed) ? null : parsed }
         : vehicle
     )))
+  }
+
+  const handleEnableNotifications = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      toast.error('Este navegador no admite notificaciones web.')
+      return
+    }
+
+    setNotifLoading(true)
+    try {
+      const granted = await askNotificationPermission()
+      setNotificationPermission(Notification.permission as 'default' | 'granted' | 'denied')
+      if (granted) {
+        toast.success('Notificaciones habilitadas.')
+      } else if (Notification.permission === 'denied') {
+        toast.error('Debes permitir las notificaciones en el navegador para recibir alertas.')
+      } else {
+        toast('Solicitud de notificaciones cancelada.', { icon: '🔔' })
+      }
+    } catch (err) {
+      console.error('Error solicitando permiso de notificaciones:', err)
+      toast.error('No se pudo solicitar el permiso de notificaciones.')
+    } finally {
+      setNotifLoading(false)
+    }
   }
 
   const handleSaveReminders = async () => {
@@ -182,6 +216,36 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+
+      {/* Notificaciones */}
+      <div className="card p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <Bell size={18} className="text-brand-600" />
+          <h2 className="section-title">Notificaciones</h2>
+        </div>
+        <p className="text-sm text-slate-600">Activa las notificaciones del navegador para recibir alertas en la app. En móviles, esto funciona mejor desde un origen seguro (HTTPS).</p>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] items-center">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Estado actual</p>
+            <p className="text-xs text-slate-500">
+              {notificationPermission === 'granted' && 'Habilitado'}
+              {notificationPermission === 'denied' && 'Denegado - habilítalo en la configuración del navegador'}
+              {notificationPermission === 'default' && 'No solicitado'}
+              {notificationPermission === 'unsupported' && 'No soportado en este navegador'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleEnableNotifications}
+            disabled={notifLoading || notificationPermission === 'granted'}
+            className="btn-primary inline-flex items-center justify-center"
+          >
+            {notifLoading ? <Loader2 size={15} className="animate-spin" /> : <Bell size={15} />}
+            {notificationPermission === 'granted' ? 'Activado' : 'Activar notificaciones'}
+          </button>
+        </div>
+        <p className="text-xs text-slate-400">Si el navegador no aparece en la configuración de notificaciones, intenta con una URL HTTPS o usa el sitio desplegado en Vercel.</p>
+      </div>
 
       {/* Días de recordatorios automáticos */}
       <div className="card p-6 space-y-5">

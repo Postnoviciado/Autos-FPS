@@ -25,3 +25,23 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>
 )
+
+// Registrar Service Worker para notificaciones en background
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then((reg) => {
+      console.log('[App] Service Worker registered:', reg)
+      
+      // Pedir permiso para notificaciones push en background
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            console.log('[App] Notification permission granted')
+          }
+        })
+      }
+    })
+    .catch((err) => {
+      console.warn('[App] Service Worker registration failed:', err)
+    })
+}

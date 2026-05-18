@@ -1,5 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getCachedData, setCachedData } from '@/lib/localCache'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useAuthStore } from '@/store/authStore'
 import type { Reminder, Vehicle } from '@/types'
 import { formatDate, getDateStatus } from '@/lib/dateUtils'
@@ -12,8 +14,12 @@ import toast from 'react-hot-toast'
 
 const typeLabels = { soat: 'SOAT', tech_review: 'Rev. Técnica', mileage: 'Kilometraje', extinguisher: 'Extintor' }
 
+const REMINDERS_CACHE_KEY = 'autosfps-cache-reminders-v1'
+const VEHICLES_CACHE_KEY = 'autosfps-cache-vehicles-v1'
+
 export default function RemindersPage() {
   const user = useAuthStore((s) => s.user)
+  const online = useOnlineStatus()
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,11 +28,31 @@ export default function RemindersPage() {
   const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const cachedReminders = getCachedData<Reminder[]>(REMINDERS_CACHE_KEY)
+    if (cachedReminders) {
+      setReminders(cachedReminders)
+    }
+
+    const cachedVehicles = getCachedData<Vehicle[]>(VEHICLES_CACHE_KEY)
+    if (cachedVehicles) {
+      setVehicles(cachedVehicles)
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLoading(false)
+      return
+    }
+
     try {
       const [remindersRes, vehiclesRes] = await Promise.all([
-        supabase.from('reminders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('vehicles').select('*').eq('user_id', user.id).order('plate_number', { ascending: true }),
+        supabase.from('reminders').select('id, user_id, vehicle_id, type, due_date, status, days_before, is_auto, notified_thresholds, last_notified_at, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('vehicles').select('id, user_id, plate_number, model, manufacture_year, created_at, updated_at').eq('user_id', user.id).order('plate_number', { ascending: true }),
       ])
       if (remindersRes.error) throw remindersRes.error
       if (vehiclesRes.error) throw vehiclesRes.error
@@ -49,6 +75,8 @@ export default function RemindersPage() {
 
       setReminders(reminderData)
       setVehicles(vehiclesRes.data || [])
+      setCachedData(REMINDERS_CACHE_KEY, reminderData)
+      setCachedData(VEHICLES_CACHE_KEY, vehiclesRes.data || [])
     } catch (err) {
       console.warn('Failed to load reminders:', err)
     } finally {
@@ -56,10 +84,14 @@ export default function RemindersPage() {
     }
   }
 
-  useEffect(() => { load() }, [user])
+  useEffect(() => { load() }, [user, online])
 
   const handleDelete = async () => {
     if (!deleteId) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      toast.error('No hay conexión. Intenta de nuevo cuando vuelvas a internet.')
+      return
+    }
     setDeleting(true)
     try {
       const { error } = await supabase.from('reminders').delete().eq('id', deleteId)
@@ -75,6 +107,10 @@ export default function RemindersPage() {
   }
 
   const handleDismiss = async (id: string) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      toast.error('No hay conexión. Intenta de nuevo cuando vuelvas a internet.')
+      return
+    }
     try {
       const { error } = await supabase.from('reminders').update({ status: 'dismissed' }).eq('id', id)
       if (error) throw error

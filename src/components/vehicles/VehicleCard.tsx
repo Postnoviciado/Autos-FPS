@@ -41,7 +41,7 @@ export default function VehicleCard({ vehicle, onUpdate, hideNextMaintenance }: 
         {/* Foto miniatura */}
         {photoUrl && (
           <div className="h-24 overflow-hidden">
-            <img src={photoUrl} alt={vehicle.plate_number} className="w-full h-full object-cover" />
+            <img src={photoUrl} alt={vehicle.plate_number} className="w-full h-full object-cover" loading="lazy" />
           </div>
         )}
 

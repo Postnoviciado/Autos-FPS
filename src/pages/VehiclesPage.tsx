@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, getFileUrl } from '@/lib/supabase'
+import { getCachedData, setCachedData } from '@/lib/localCache'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { useAuthStore } from '@/store/authStore'
 import type { Vehicle } from '@/types'
 import { formatDate, getDateStatus, getMileageStatus } from '@/lib/dateUtils'
@@ -14,9 +16,12 @@ import clsx from 'clsx'
 
 type Tab = 'foto' | 'datos' | 'tarjeta'
 
+const VEHICLES_CACHE_KEY = 'autosfps-cache-vehicles-v1'
+
 export default function VehiclesPage() {
   const user = useAuthStore(s => s.user)
   const navigate = useNavigate()
+  const online = useOnlineStatus()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -24,17 +29,40 @@ export default function VehiclesPage() {
   const [tab, setTab] = useState<Tab>('foto')
 
   const load = async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    const cachedVehicles = getCachedData<Vehicle[]>(VEHICLES_CACHE_KEY)
+    if (cachedVehicles) {
+      setVehicles(cachedVehicles)
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setLoading(false)
+      return
+    }
+
     try {
-      const { data, error } = await supabase.from('vehicles').select('*').eq('user_id', user.id).order('plate_number', { ascending: true })
+      const { data, error } = await supabase.from('vehicles')
+        .select('id, user_id, plate_number, brand, model, manufacture_year, current_mileage, next_mileage, mileage_alert_km, soat_expiry, tech_review_next, extinguisher_renewal, photo, property_card, air_pressure, created_at, updated_at')
+        .eq('user_id', user.id)
+        .order('plate_number', { ascending: true })
       if (error) throw error
-      setVehicles(data || [])
+
+      const vehiclesData = data || []
+      setVehicles(vehiclesData)
+      setCachedData(VEHICLES_CACHE_KEY, vehiclesData)
     } catch (err) {
       console.warn('Failed to load vehicles:', err)
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { load() }, [user])
+  useEffect(() => { load() }, [user, online])
 
   const filtered = vehicles.filter(v => v.plate_number.toLowerCase().includes(search.toLowerCase()))
 
@@ -135,7 +163,7 @@ function VehicleCard({ vehicle: v, onOpenTab }: { vehicle: Vehicle; onOpenTab: (
         <div className="w-full h-full rounded-3xl bg-cream-100 p-2">
           <button onClick={() => onOpenTab(v, 'foto')} className="w-full h-full rounded-3xl overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity">
           {photoUrl ? (
-            <img src={photoUrl} alt={v.plate_number} className="w-full h-full object-cover" />
+            <img src={photoUrl} alt={v.plate_number} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 text-slate-300">
               <Camera size={32} />

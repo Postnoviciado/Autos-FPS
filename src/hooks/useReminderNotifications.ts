@@ -106,7 +106,7 @@ function browserSupportsNotifications() {
   return typeof window !== 'undefined' && 'Notification' in window
 }
 
-async function requestNotificationPermission() {
+export async function askNotificationPermission() {
   if (!browserSupportsNotifications()) return false
   if (Notification.permission === 'granted') return true
   if (Notification.permission === 'denied') return false
@@ -114,22 +114,40 @@ async function requestNotificationPermission() {
   return permission === 'granted'
 }
 
+async function requestNotificationPermission() {
+  return askNotificationPermission()
+}
+
 function showBrowserNotification(reminder: Reminder, vehicleInfo: { plate_number: string; model?: string } | null) {
-  if (!browserSupportsNotifications() || Notification.permission !== 'granted') return
-  const title = `Recordatorio ${typeLabels[reminder.type]}`
-  const daysRemaining = getDaysRemaining(reminder.due_date)
-  const overdueText = daysRemaining !== null && daysRemaining < 0
-    ? ` · Se venció hace ${Math.abs(daysRemaining)} día${Math.abs(daysRemaining) === 1 ? '' : 's'}`
-    : ''
-  const vehicleText = vehicleInfo
-    ? `Revisar el kilometraje de ${vehicleInfo.plate_number}: ${vehicleInfo.model ?? 'sin modelo'}. `
-    : ''
-  const body = `${vehicleText}${formatDate(reminder.due_date)}${overdueText}`
-  const notification = new Notification(title, {
-    body,
-    tag: reminder.id,
+  let shown = false
+  
+  // Intentar mostrar notificación del navegador (PC, Android background)
+  if (browserSupportsNotifications() && Notification.permission === 'granted') {
+    const title = `Recordatorio ${typeLabels[reminder.type]}`
+    const daysRemaining = getDaysRemaining(reminder.due_date)
+    const overdueText = daysRemaining !== null && daysRemaining < 0
+      ? ` · Se venció hace ${Math.abs(daysRemaining)} día${Math.abs(daysRemaining) === 1 ? '' : 's'}`
+      : ''
+    const vehicleText = vehicleInfo
+      ? `Revisar el kilometraje de ${vehicleInfo.plate_number}: ${vehicleInfo.model ?? 'sin modelo'}. `
+      : ''
+    const body = `${vehicleText}${formatDate(reminder.due_date)}${overdueText}`
+    const notification = new Notification(title, {
+      body,
+      tag: reminder.id,
+    })
+    notification.onclick = () => window.focus()
+    shown = true
+  }
+  
+  // Mostrar toast en la app (siempre, complementario)
+  const plateText = vehicleInfo?.plate_number ? ` (${vehicleInfo.plate_number})` : ''
+  toast.success(`⏰ ${typeLabels[reminder.type]}${plateText} - ${formatDate(reminder.due_date)}`, {
+    duration: 5000,
+    position: 'top-right',
   })
-  notification.onclick = () => window.focus()
+  
+  return shown
 }
 
 export function useReminderNotifications(userId?: string) {
@@ -138,6 +156,11 @@ export function useReminderNotifications(userId?: string) {
     let active = true
 
     const notify = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        console.warn('Offline: skipping reminder notification sync until connection is restored.')
+        return
+      }
+
       // Run daily mileage increment once per day (per user)
       try {
         const lastKey = `ac_daily_mileage_${userId}`
@@ -180,8 +203,8 @@ export function useReminderNotifications(userId?: string) {
 
       try {
         const [settingsRes, remindersRes] = await Promise.all([
-          supabase.from('reminder_settings').select('*').eq('user_id', userId).single(),
-          supabase.from('reminders').select('*').eq('user_id', userId).eq('status', 'pending').order('due_date', { ascending: true }),
+          supabase.from('reminder_settings').select('soat_days, tech_review_days, extinguisher_days').eq('user_id', userId).single(),
+          supabase.from('reminders').select('id, user_id, vehicle_id, type, due_date, status, days_before, is_auto, notified_thresholds, last_notified_at, created_at').eq('user_id', userId).eq('status', 'pending').order('due_date', { ascending: true }),
         ])
 
         const settings = settingsRes.error?.code === 'PGRST116' ? null : settingsRes.data

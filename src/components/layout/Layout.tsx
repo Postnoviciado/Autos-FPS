@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { LayoutDashboard, Car, Wrench, Bell, Settings, LogOut, Menu, ChevronRight, Shield, Users, Download } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -71,6 +72,8 @@ export default function Layout() {
     </div>
   )
 
+  const online = useOnlineStatus()
+
   return (
     <div className="flex h-screen bg-amber-50 overflow-hidden text-slate-900">
       <aside className="hidden lg:flex flex-col w-64 bg-amber-100 border-r border-amber-200 flex-shrink-0">
@@ -94,6 +97,11 @@ export default function Layout() {
         </header>
         <main className="flex-1 overflow-y-auto bg-amber-50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            {!online && (
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+                <strong className="font-semibold">Sin conexión:</strong> la aplicación está usando datos guardados localmente y algunas acciones requieren internet.
+              </div>
+            )}
             <Outlet />
           </div>
         </main>
