@@ -127,6 +127,27 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSendTestNotification = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      toast.error('Notificaciones no disponibles en este navegador.')
+      return
+    }
+    if (Notification.permission !== 'granted') {
+      toast.error('Primero habilita las notificaciones.')
+      return
+    }
+
+    try {
+      new Notification('Prueba de notificación', {
+        body: 'Esta notificación confirma que la API funciona en tu navegador.',
+      })
+      toast.success('Notificación de prueba enviada.')
+    } catch (err) {
+      console.error('Error enviando notificación de prueba:', err)
+      toast.error('No se pudo mostrar la notificación de prueba.')
+    }
+  }
+
   const handleSaveReminders = async () => {
     if (!user) return
     setSavingRem(true)
@@ -234,15 +255,25 @@ export default function SettingsPage() {
               {notificationPermission === 'unsupported' && 'No soportado en este navegador'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleEnableNotifications}
-            disabled={notifLoading || notificationPermission === 'granted'}
-            className="btn-primary inline-flex items-center justify-center"
-          >
-            {notifLoading ? <Loader2 size={15} className="animate-spin" /> : <Bell size={15} />}
-            {notificationPermission === 'granted' ? 'Activado' : 'Activar notificaciones'}
-          </button>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              disabled={notifLoading || notificationPermission === 'granted'}
+              className="btn-primary inline-flex items-center justify-center"
+            >
+              {notifLoading ? <Loader2 size={15} className="animate-spin" /> : <Bell size={15} />}
+              {notificationPermission === 'granted' ? 'Activado' : 'Activar notificaciones'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSendTestNotification}
+              disabled={notificationPermission !== 'granted'}
+              className="btn-secondary inline-flex items-center justify-center"
+            >
+              Probar notificación
+            </button>
+          </div>
         </div>
         <p className="text-xs text-slate-400">Si el navegador no aparece en la configuración de notificaciones, intenta con una URL HTTPS o usa el sitio desplegado en Vercel.</p>
       </div>
