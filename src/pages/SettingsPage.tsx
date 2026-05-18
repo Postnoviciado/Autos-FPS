@@ -26,6 +26,40 @@ export default function SettingsPage() {
   })
   const [notificationPermission, setNotificationPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
   const [notifLoading, setNotifLoading] = useState(false)
+  const [diagnostic, setDiagnostic] = useState({
+    userAgent: '',
+    platform: '',
+    online: true,
+    notificationSupported: false,
+    serviceWorkerSupported: false,
+    serviceWorkerRegistered: false,
+    serviceWorkerController: false,
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const notificationSupported = 'Notification' in window
+    const serviceWorkerSupported = 'serviceWorker' in navigator
+    const permission = notificationSupported ? Notification.permission as 'default' | 'granted' | 'denied' : 'unsupported'
+
+    setNotificationPermission(permission)
+    setDiagnostic((current) => ({
+      ...current,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      online: navigator.onLine,
+      notificationSupported,
+      serviceWorkerSupported,
+      serviceWorkerController: serviceWorkerSupported && Boolean(navigator.serviceWorker.controller),
+    }))
+
+    if (serviceWorkerSupported) {
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        setDiagnostic((current) => ({ ...current, serviceWorkerRegistered: Boolean(reg) }))
+      }).catch(() => {})
+    }
+  }, [user])
 
   // Días editables como strings para los inputs
   const [remForm, setRemForm] = useState({
@@ -145,6 +179,29 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Error enviando notificación de prueba:', err)
       toast.error('No se pudo mostrar la notificación de prueba.')
+    }
+  }
+
+  const handleCopyDiagnostic = async () => {
+    if (typeof window === 'undefined') return
+
+    const text = [
+      `userAgent: ${diagnostic.userAgent}`,
+      `platform: ${diagnostic.platform}`,
+      `online: ${diagnostic.online ? 'Sí' : 'No'}`,
+      `notificationSupported: ${diagnostic.notificationSupported ? 'Sí' : 'No'}`,
+      `permission: ${notificationPermission}`,
+      `serviceWorkerSupported: ${diagnostic.serviceWorkerSupported ? 'Sí' : 'No'}`,
+      `serviceWorkerRegistered: ${diagnostic.serviceWorkerRegistered ? 'Sí' : 'No'}`,
+      `serviceWorkerController: ${diagnostic.serviceWorkerController ? 'Sí' : 'No'}`,
+    ].join('\n')
+
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Información copiada al portapapeles')
+    } catch (err) {
+      console.error('Error copiando info de diagnóstico:', err)
+      toast.error('No se pudo copiar la información')
     }
   }
 
@@ -274,6 +331,26 @@ export default function SettingsPage() {
               Probar notificación
             </button>
           </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-semibold text-slate-900">Diagnóstico de notificaciones</p>
+            <button
+              type="button"
+              onClick={handleCopyDiagnostic}
+              className="btn-ghost px-3 py-1 text-xs"
+            >
+              Copiar info
+            </button>
+          </div>
+          <p><strong>Navegador:</strong> {diagnostic.userAgent || '—'}</p>
+          <p><strong>Plataforma:</strong> {diagnostic.platform || '—'}</p>
+          <p><strong>En línea:</strong> {diagnostic.online ? 'Sí' : 'No'}</p>
+          <p><strong>Notificaciones web:</strong> {diagnostic.notificationSupported ? 'Sí' : 'No'}</p>
+          <p><strong>Permiso:</strong> {notificationPermission}</p>
+          <p><strong>Service Worker:</strong> {diagnostic.serviceWorkerSupported ? 'Sí' : 'No'}{diagnostic.serviceWorkerSupported ? ` · ${diagnostic.serviceWorkerRegistered ? 'Registrado' : 'No registrado'}` : ''}</p>
+          <p><strong>Controlador SW:</strong> {diagnostic.serviceWorkerController ? 'Sí' : 'No'}</p>
+          <p className="text-xs text-slate-400">Envía esta información si quieres que adapte el comportamiento a tu teléfono o navegador.</p>
         </div>
         <p className="text-xs text-slate-400">Si el navegador no aparece en la configuración de notificaciones, intenta con una URL HTTPS o usa el sitio desplegado en Vercel.</p>
       </div>
